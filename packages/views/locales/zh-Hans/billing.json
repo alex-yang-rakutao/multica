@@ -134,7 +134,8 @@
       "usage_total": "{{total}} / {{limit}}",
       "usage_breakdown": "已完成 {{used}} · 进行中 {{reserved}}",
       "resets_at": "{{date}} 重置",
-      "usage_unavailable": "用量暂时不可用"
+      "usage_unavailable": "用量暂时不可用",
+      "metering": "时间表、Webhook 和智能体发起的运行计入额度，成员点击\"立即运行\"不计入。"
     },
     "seats": {
       "title": "席位",

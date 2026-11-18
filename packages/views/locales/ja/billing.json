@@ -134,7 +134,8 @@
       "usage_total": "{{total}} / {{limit}}",
       "usage_breakdown": "完了 {{used}} · 実行中 {{reserved}}",
       "resets_at": "{{date}} にリセット",
-      "usage_unavailable": "使用量は一時的に利用できません"
+      "usage_unavailable": "使用量は一時的に利用できません",
+      "metering": "スケジュール、Webhook、エージェントによる実行はカウントされます。メンバーが「今すぐ実行」で開始した実行はカウントされません。"
     },
     "seats": {
       "title": "席数",

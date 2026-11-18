@@ -135,7 +135,8 @@
       "usage_total": "{{total}} / {{limit}}",
       "usage_breakdown": "{{used}} completed · {{reserved}} in progress",
       "resets_at": "Resets {{date}}",
-      "usage_unavailable": "Usage is temporarily unavailable"
+      "usage_unavailable": "Usage is temporarily unavailable",
+      "metering": "Runs from schedules, webhooks, and agents count. Runs a member starts with Run now don't."
     },
     "seats": {
       "title": "Seats",

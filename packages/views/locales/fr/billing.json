@@ -135,7 +135,8 @@
       "usage_total": "{{total}} / {{limit}}",
       "usage_breakdown": "{{used}} terminées · {{reserved}} en cours",
       "resets_at": "Réinitialisation {{date}}",
-      "usage_unavailable": "La consommation est temporairement indisponible"
+      "usage_unavailable": "La consommation est temporairement indisponible",
+      "metering": "Les exécutions lancées par une planification, un webhook ou un agent sont comptées. Celles qu'un membre lance avec Exécuter maintenant ne le sont pas."
     },
     "seats": {
       "title": "Sièges",

@@ -135,7 +135,8 @@
       "usage_total": "{{total}} / {{limit}}",
       "usage_breakdown": "{{used}} completadas · {{reserved}} en curso",
       "resets_at": "Se reinicia el {{date}}",
-      "usage_unavailable": "El uso no está disponible temporalmente"
+      "usage_unavailable": "El uso no está disponible temporalmente",
+      "metering": "Cuentan las ejecuciones de programaciones, webhooks y agentes. Las que un miembro inicia con Ejecutar ahora no cuentan."
     },
     "seats": {
       "title": "Puestos",
