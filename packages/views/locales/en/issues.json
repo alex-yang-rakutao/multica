@@ -1,4 +1,19 @@
 {
+  "run_feedback": {
+    "queued": "Run queued",
+    "covered": "An existing run covers this change",
+    "deferred": "Run deferred",
+    "blocked": "Run did not start"
+  },
+  "comment_delivery": {
+    "waiting": "Waiting to reach the run",
+    "queued": "Queued for delivery",
+    "received": "Received by the run",
+    "run_ended": "The run ended before receiving this comment",
+    "view_run": "View run",
+    "retry": "Retry delivery",
+    "retry_failed": "Could not retry delivery"
+  },
   "web": {
     "open_in_desktop": "Open in Desktop"
   },

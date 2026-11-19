@@ -1,3 +1,4 @@
+import type { IssueRunOutcome } from "./issue-run-outcome";
 import { issueBehavesAs, normalizeStatusPatch } from "./status-category";
 import {
   hashKey,
@@ -193,12 +194,12 @@ export function useCreateCommentSubIssue() {
   }) => api.createCommentSubIssue(anchorCommentId, data));
 }
 
-export function useUpdateIssue() {
+export function useUpdateIssue(onRunOutcome?: (outcome: IssueRunOutcome) => void) {
   const qc = useQueryClient();
   const wsId = useWorkspaceId();
   return useMutation({
     mutationKey: issueWriteMutationKey(wsId),
-    mutationFn: ({ id, move_intent: moveIntent, ...data }: UpdateIssueMutationInput) => {
+    mutationFn: ({ id, move_intent: moveIntent, ...data }: UpdateIssueMutationInput): Promise<Issue & { run_outcome?: IssueRunOutcome }> => {
       if (!moveIntent) return api.updateIssue(id, data);
       const { position: _optimisticPosition, ...target } = data;
       return api.moveIssue(id, { ...target, ...moveIntent });
@@ -314,6 +315,8 @@ export function useUpdateIssue() {
       qc.invalidateQueries({ queryKey: issueKeys.tableAll(wsId) });
     },
     onSuccess: (serverIssue, vars) => {
+      const { run_outcome, ...issueFields } = serverIssue;
+      if (run_outcome && !vars.suppress_run) onRunOutcome?.(run_outcome);
       // Reconcile with the authoritative server entity by patching the one card
       // in place — NOT by invalidating + refetching the list. The list refetch
       // is what made a successful move flicker: the optimistic card was already
@@ -343,7 +346,7 @@ export function useUpdateIssue() {
       // optimistic state). An UpdateIssue snapshot taken before a concurrent
       // property write resolves would otherwise overwrite the newer bag
       // (clean-room review F3 response-ordering race).
-      const { properties: _staleBag, ...reconcilable } = serverIssue;
+      const { properties: _staleBag, ...reconcilable } = issueFields;
       const reconcile = applyIssueChange(qc, wsId, serverIssue.id, reconcilable as typeof serverIssue, {
         changed: issueChangedDims(intent, serverIssue),
         baseIssue: serverIssue,
@@ -890,6 +893,23 @@ export function useBatchDeleteIssues() {
 
 type TimelineCache = TimelineEntry[];
 
+export function useRetryCommentDelivery(issueId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ commentId, target_type, target_id }: { commentId: string; target_type: string; target_id: string }) =>
+      api.retryCommentDelivery(issueId, commentId, { target_type, target_id }),
+    onSuccess: (deliveries, { commentId }) => {
+      if (deliveries) {
+        qc.setQueryData<TimelineCache>(issueKeys.timeline(issueId), (old) =>
+          old?.map((entry) => entry.id === commentId ? { ...entry, deliveries } : entry),
+        );
+      }
+      qc.invalidateQueries({ queryKey: issueKeys.timeline(issueId) });
+      qc.invalidateQueries({ queryKey: issueKeys.tasks(issueId) });
+    },
+  });
+}
+
 export function useCreateComment(issueId: string) {
   const qc = useQueryClient();
   const wsId = useWorkspaceId();
@@ -929,6 +949,7 @@ export function useCreateComment(issueId: string) {
         attachments: comment.attachments ?? [],
         created_at: comment.created_at,
         updated_at: comment.updated_at,
+        deliveries: comment.deliveries,
         supplements: comment.supplements,
       };
       const steered = !!comment.supplements?.length;
@@ -939,8 +960,12 @@ export function useCreateComment(issueId: string) {
       qc.setQueryData<TimelineCache>(issueKeys.timeline(issueId), (old) => {
         if (!old) return [entry];
         if (old.some((e) => e.id === entry.id)) {
-          return steered
-            ? old.map((e) => (e.id === entry.id && !e.supplements?.length ? { ...e, supplements: entry.supplements } : e))
+          return steered || entry.deliveries?.length
+            ? old.map((e) => e.id === entry.id ? {
+              ...e,
+              deliveries: e.deliveries ?? entry.deliveries,
+              supplements: e.supplements?.length ? e.supplements : entry.supplements,
+            } : e)
             : old;
         }
         return sortTimelineEntriesAsc([...old, entry]);

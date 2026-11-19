@@ -47,7 +47,8 @@ type TimelineEntry struct {
 	ResolvedByID   *string              `json:"resolved_by_id,omitempty"`
 	SourceTaskID   *string              `json:"source_task_id,omitempty"`
 	// Set only on a tombstone: a comment deleted while it still had replies.
-	DeletedAt *string `json:"deleted_at,omitempty"`
+	DeletedAt  *string           `json:"deleted_at,omitempty"`
+	Deliveries []CommentDelivery `json:"deliveries,omitempty"`
 	// Supplements lists every running turn this comment steered; the single
 	// supplement_* fields mirror the first receipt for older clients.
 	Supplements             []CommentSupplementResponse `json:"supplements,omitempty"`
@@ -310,6 +311,7 @@ func (h *Handler) commentsToEntries(r *http.Request, comments []db.Comment) []Ti
 	reactions := h.groupReactions(r, ids)
 	attachments := h.groupAttachments(r, ids)
 	supplements := h.listCommentSupplements(r.Context(), comments[0].WorkspaceID, ids)
+	deliveries := h.listCommentDeliveries(r, comments[0].WorkspaceID, comments)
 
 	out := make([]TimelineEntry, len(comments))
 	for i, c := range comments {
@@ -336,6 +338,7 @@ func (h *Handler) commentsToEntries(r *http.Request, comments []db.Comment) []Ti
 			ResolvedByID:   uuidToPtr(c.ResolvedByID),
 			SourceTaskID:   uuidToPtr(c.SourceTaskID),
 			DeletedAt:      timestampToPtr(c.DeletedAt),
+			Deliveries:     deliveries[c.ID],
 		}
 		if receipts := supplements[cid]; len(receipts) > 0 {
 			out[i].Supplements = receipts

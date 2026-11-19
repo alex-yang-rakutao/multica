@@ -1,4 +1,19 @@
 {
+  "run_feedback": {
+    "queued": "Exécution en file d’attente",
+    "covered": "Une exécution existante prend en charge ce changement",
+    "deferred": "Exécution différée",
+    "blocked": "L’exécution n’a pas démarré"
+  },
+  "comment_delivery": {
+    "waiting": "En attente de transmission",
+    "queued": "Transmission en file d’attente",
+    "received": "Reçu par l’exécution",
+    "run_ended": "L’exécution s’est terminée avant de recevoir ce commentaire",
+    "view_run": "Voir l’exécution",
+    "retry": "Réessayer la transmission",
+    "retry_failed": "Impossible de réessayer la transmission"
+  },
   "web": {
     "open_in_desktop": "Ouvrir dans l’application de bureau"
   },

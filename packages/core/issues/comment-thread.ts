@@ -19,6 +19,7 @@ export function commentToTimelineEntry(c: Comment): TimelineEntry {
     resolved_by_type: c.resolved_by_type,
     resolved_by_id: c.resolved_by_id,
     source_task_id: c.source_task_id,
+    deliveries: c.deliveries,
     supplements: c.supplements,
     supplement_task_id: c.supplement_task_id,
     supplement_status: c.supplement_status,

@@ -1,3 +1,4 @@
+import { parseIssueRunOutcome, type IssueRunOutcome } from "../issues/issue-run-outcome";
 import type { ListWeixinInstallationsResponse, WeixinLogin } from "../types/weixin";
 import { ListWeixinInstallationsSchema, WeixinLoginSchema, EMPTY_WEIXIN_INSTALLATIONS, INVALID_WEIXIN_LOGIN } from "../weixin/schema";
 import {
@@ -422,6 +423,8 @@ import {
   ListIssuesResponseSchema,
   CreateIssueResponseSchema,
   IssueSchema,
+  CommentDeliveriesSchema,
+  RetryCommentDeliveryResponseSchema,
   AgentTaskSchema,
   SourceContextPreviewSchema,
   CommentSubIssueTaskResponseSchema,
@@ -2014,11 +2017,14 @@ export class ApiClient {
     });
   }
 
-  async updateIssue(id: string, data: UpdateIssueRequest): Promise<Issue> {
-    return this.fetch(`/api/issues/${id}`, {
+  async updateIssue(id: string, data: UpdateIssueRequest): Promise<Issue & { run_outcome?: IssueRunOutcome }> {
+    const issue = await this.fetch<Issue & { run_outcome?: unknown }>(`/api/issues/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
+    const { run_outcome, ...fields } = issue;
+    const outcome = parseIssueRunOutcome(run_outcome);
+    return outcome ? { ...fields, run_outcome: outcome } : fields;
   }
 
   async moveIssue(id: string, data: MoveIssueRequest): Promise<Issue> {
@@ -2120,7 +2126,7 @@ export class ApiClient {
     suppressAgentIds?: string[],
     steerTaskIds?: string[],
   ): Promise<Comment> {
-    return this.fetch(`/api/issues/${issueId}/comments`, {
+    const comment = await this.fetch<Comment>(`/api/issues/${issueId}/comments`, {
       method: "POST",
       body: JSON.stringify({
         content,
@@ -2131,6 +2137,21 @@ export class ApiClient {
         ...(steerTaskIds?.length ? { steer_task_ids: steerTaskIds } : {}),
       }),
     });
+    const deliveries = parseWithFallback<Comment["deliveries"]>(
+      comment.deliveries, CommentDeliveriesSchema, undefined,
+      { endpoint: "POST /api/issues/:id/comments (deliveries)" },
+    );
+    return { ...comment, deliveries };
+  }
+
+  async retryCommentDelivery(issueId: string, commentId: string, target: { target_type: string; target_id: string }): Promise<Comment["deliveries"]> {
+    const raw = await this.fetch<unknown>(`/api/issues/${issueId}/comments/${commentId}/deliveries/retry`, {
+      method: "POST",
+      body: JSON.stringify(target),
+    });
+    return parseWithFallback<{ deliveries?: Comment["deliveries"] }>(
+      raw, RetryCommentDeliveryResponseSchema, {}, { endpoint: "POST /api/issues/:id/comments/:commentId/deliveries/retry" },
+    ).deliveries;
   }
 
   async previewCommentTriggers(issueId: string, content: string, parentId?: string, editingCommentId?: string): Promise<CommentTriggerPreview> {

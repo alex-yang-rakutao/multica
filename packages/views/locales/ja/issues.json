@@ -1,4 +1,19 @@
 {
+  "run_feedback": {
+    "queued": "実行をキューに追加しました",
+    "covered": "この変更は既存の実行で処理されます",
+    "deferred": "実行を保留しました",
+    "blocked": "実行を開始できませんでした"
+  },
+  "comment_delivery": {
+    "waiting": "配信待ち",
+    "queued": "配信キューに追加済み",
+    "received": "実行に配信済み",
+    "run_ended": "コメントを受信する前に実行が終了しました",
+    "view_run": "実行を表示",
+    "retry": "配信を再試行",
+    "retry_failed": "配信を再試行できませんでした"
+  },
   "web": {
     "open_in_desktop": "デスクトップで開く"
   },

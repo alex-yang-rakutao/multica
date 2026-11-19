@@ -47,6 +47,7 @@ export interface Comment {
   // Per-target result of every explicit @agent / @squad mention in this comment
   // (MUL-4525 §2). Present only on create/edit responses; older servers omit it.
   trigger_outcomes?: CommentTriggerOutcome[];
+  deliveries?: CommentDelivery[];
   /** Every running turn this comment steered, one receipt per run. */
   supplements?: CommentSupplementReceipt[];
   /** Mirrors the first receipt; servers that predate `supplements` send only these. */
@@ -103,4 +104,14 @@ export interface CommentTriggerPreview {
   // Explicit @agent / @squad mentions that will NOT trigger if posted as-is
   // (MUL-4525 §2). Additive: older servers omit it.
   blocked?: CommentTriggerOutcome[];
+}
+
+
+export interface CommentDelivery {
+  target_type: "agent" | "squad";
+  target_id: string;
+  status: "pending" | "queued" | "coalesced" | "deferred" | "steered" | "received" | "blocked";
+  reason_code: string;
+  task_id?: string;
+  retryable?: boolean;
 }

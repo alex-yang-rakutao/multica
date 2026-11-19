@@ -65,27 +65,28 @@ function applyCommentSnapshot(
   issueId: string,
   comment: Comment,
 ) {
-  let missingRevision = false;
+  let shouldRefetch = false;
   qc.setQueryData<TLCache>(issueKeys.timeline(issueId), (old) =>
     old?.map((entry) => {
       if (entry.id !== comment.id) return entry;
       if (entry.revision !== undefined && comment.revision === undefined) {
-        missingRevision = true;
+        shouldRefetch = true;
         return entry;
       }
-      return acceptsCommentRevision(entry, comment)
-        ? {
-            ...commentToTimelineEntry(comment),
-            actor_name: entry.actor_name,
-            actor_avatar_url: entry.actor_avatar_url,
-          }
-        : entry;
+      if (!acceptsCommentRevision(entry, comment)) return entry;
+      // Shared events do not carry the comment author's delivery receipts.
+      if (entry.deliveries?.length && !comment.deleted_at && comment.content !== entry.content) {
+        shouldRefetch = true;
+      }
+      return {
+        ...commentToTimelineEntry(comment),
+        deliveries: comment.deleted_at ? undefined : comment.deliveries ?? entry.deliveries,
+        actor_name: entry.actor_name,
+        actor_avatar_url: entry.actor_avatar_url,
+      };
     }),
   );
-  if (missingRevision) {
-    // During a rolling deployment, an old server may emit an unversioned
-    // snapshot after this cache has already observed a versioned one. Never
-    // overwrite the ordered value; refetch from the authoritative API instead.
+  if (shouldRefetch) {
     qc.invalidateQueries({ queryKey: issueKeys.timeline(issueId) });
   }
 }

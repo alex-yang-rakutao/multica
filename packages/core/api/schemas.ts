@@ -1268,6 +1268,25 @@ const CommentSupplementReceiptsSchema = z.array(z.unknown()).optional().catch(un
     return parsed.success ? [parsed.data] : [];
   }));
 
+const CommentDeliverySchema = z.object({
+  target_type: z.enum(["agent", "squad"]),
+  target_id: z.string(),
+  status: z.enum(["pending", "queued", "coalesced", "deferred", "steered", "received", "blocked"]),
+  reason_code: z.string().default(""),
+  task_id: z.string().optional().catch(undefined),
+  retryable: z.boolean().optional().catch(undefined),
+});
+
+export const CommentDeliveriesSchema = z.array(z.unknown()).optional().catch(undefined)
+  .transform((raw) => raw?.flatMap((item) => {
+    const parsed = CommentDeliverySchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  }));
+
+export const RetryCommentDeliveryResponseSchema = z.object({
+  deliveries: CommentDeliveriesSchema,
+});
+
 const TimelineEntrySchema = z.object({
   type: z.string(),
   id: z.string(),
@@ -1286,6 +1305,7 @@ const TimelineEntrySchema = z.object({
   reactions: z.array(ReactionSchema).optional(),
   attachments: z.array(AttachmentSchema).optional(),
   source_task_id: z.string().nullable().optional(),
+  deliveries: CommentDeliveriesSchema,
   supplements: CommentSupplementReceiptsSchema,
   supplement_task_id: z.string().optional().catch(undefined),
   supplement_status: z.enum(["pending", "delivering", "delivered", "failed"]).optional().catch(undefined),
@@ -1506,6 +1526,7 @@ export const CommentSchema = z.object({
   updated_at: z.string(),
   revision: z.number().int().positive().optional(),
   source_task_id: z.string().nullable().optional(),
+  deliveries: CommentDeliveriesSchema,
   supplements: CommentSupplementReceiptsSchema,
   supplement_task_id: z.string().optional().catch(undefined),
   supplement_status: z.enum(["pending", "delivering", "delivered", "failed"]).optional().catch(undefined),

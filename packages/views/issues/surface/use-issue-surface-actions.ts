@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
+import { useIssueRunFeedback } from "../hooks/use-issue-run-feedback";
 import type { UpdateIssueRequest } from "@multica/core/types";
 import {
   useBatchDeleteIssues,
@@ -48,7 +49,7 @@ export function useIssueSurfaceActions({
 }): IssueSurfaceActionController {
   const { t } = useT("projects");
   const { t: tIssues } = useT("issues");
-  const updateIssueMutation = useUpdateIssue();
+  const updateIssueMutation = useUpdateIssue(useIssueRunFeedback());
   const batchUpdateMutation = useBatchUpdateIssues();
   const batchDeleteMutation = useBatchDeleteIssues();
 

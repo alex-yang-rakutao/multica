@@ -336,7 +336,8 @@ describe("useIssueTimeline", () => {
     expect(cacheUpdates.last).toEqual(queryState.data);
   });
 
-  it("preserves hydrated actor identity when applying a comment update", () => {
+  it("preserves hydrated actor identity and delivery receipts when applying a comment update", () => {
+    const delivery = { target_type: "agent", target_id: "agent-1", status: "deferred", reason_code: "already_active" } as const;
     queryState.data = [
       {
         type: "comment",
@@ -350,6 +351,7 @@ describe("useIssueTimeline", () => {
         created_at: "2026-05-06T01:00:00Z",
         updated_at: "2026-05-06T01:00:00Z",
         revision: 1,
+        deliveries: [delivery],
         reactions: [],
         attachments: [],
       },
@@ -378,6 +380,7 @@ describe("useIssueTimeline", () => {
     expect(cacheUpdates.last).toMatchObject([
       {
         content: "after",
+        deliveries: [delivery],
         actor_name: "Former Member",
         actor_avatar_url: "https://profiles.example.com/former.png",
       },

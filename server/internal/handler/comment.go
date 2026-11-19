@@ -87,6 +87,7 @@ type CommentResponse struct {
 	// reports that here instead of silently dropping the trigger, so the client
 	// can show "comment posted, but N targets were not triggered".
 	TriggerOutcomes []CommentTriggerOutcome `json:"trigger_outcomes,omitempty"`
+	Deliveries      []CommentDelivery       `json:"deliveries,omitempty"`
 	// Supplements lists every running turn this comment steered, one receipt
 	// per run. The single supplement_* fields mirror the first receipt for
 	// clients that predate multi-run steering.
@@ -584,10 +585,12 @@ func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
 	grouped := h.groupReactions(r, commentIDs)
 	groupedAtt := h.groupAttachments(r, commentIDs)
 
+	deliveries := h.listCommentDeliveries(r, issue.WorkspaceID, result.Comments)
 	resp := make([]CommentResponse, len(result.Comments))
 	for i, c := range result.Comments {
 		cid := uuidToString(c.ID)
 		resp[i] = commentToResponse(c, grouped[cid], groupedAtt[cid])
+		resp[i].Deliveries = deliveries[c.ID]
 		// Attach roots_only orientation stats when present (nil map elsewhere).
 		if st, ok := result.RootStats[cid]; ok {
 			rc := st.ReplyCount
@@ -1499,6 +1502,7 @@ type commentAgentTrigger struct {
 }
 
 type commentTriggerComputeOptions struct {
+	UnpersistedComment      bool
 	ThreadCommentID         pgtype.UUID
 	ExcludeTriggerCommentID pgtype.UUID
 	// AuthoringTaskID is the server-trusted task that wrote an agent comment.
@@ -1874,6 +1878,40 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		// replay skips the agents it names.
 		SuppressedAgentIds: suppressAgentIDs,
 	}
+	originatorUserID := h.invokeOriginatorFromRequest(r, authorType, authorID)
+	var triggers []commentAgentTrigger
+	var targets []commentMentionTarget
+	var handoffPlan squadHandoffPlan
+	if !isNoteComment(req.Content) {
+		triggers, targets = h.computeCommentAgentTriggers(r.Context(), issue, req.Content, parentComment, authorType, authorID, commentTriggerComputeOptions{
+			UnpersistedComment:      true,
+			ExcludeTriggerCommentID: createParams.ID,
+			AuthoringTaskID:         sourceTaskID,
+			OriginatorUserID:        originatorUserID,
+			handoffPlan:             &handoffPlan,
+		})
+		triggers = filterSuppressedCommentAgentTriggers(triggers, suppressAgentIDs)
+	}
+	plan := planCommentDeliveries(triggers, targets)
+	leaseID := dbid.NewV7()
+	createWithDeliveries := func(q *db.Queries) (db.CreateCommentRow, error) {
+		created, err := q.CreateComment(r.Context(), createParams)
+		if err != nil || len(plan) == 0 {
+			return created, err
+		}
+		payload, err := json.Marshal(plan)
+		if err != nil {
+			return created, err
+		}
+		steerPayload, err := json.Marshal(steer)
+		if err != nil {
+			return created, err
+		}
+		return created, q.CreateCommentDelivery(r.Context(), db.CreateCommentDeliveryParams{
+			CommentID: created.ID, WorkspaceID: issue.WorkspaceID, IssueID: issue.ID,
+			Targets: payload, Steer: steerPayload, LeaseID: leaseID,
+		})
+	}
 	var created db.CreateCommentRow
 	var err error
 	if len(attachmentIDs) > 0 {
@@ -1912,7 +1950,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 		if err == nil {
-			created, err = qtx.CreateComment(r.Context(), createParams)
+			created, err = createWithDeliveries(qtx)
 		}
 		if err == nil {
 			var missing pgtype.UUID
@@ -1940,7 +1978,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 			if err := idem.claim(r.Context(), q, createParams.ID); err != nil {
 				return db.CreateCommentRow{}, err
 			}
-			return q.CreateComment(r.Context(), createParams)
+			return createWithDeliveries(q)
 		})
 	}
 	if errors.Is(err, errCommentIdempotencyClaimed) {
@@ -1983,11 +2021,30 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	// must keep the resolved root in sync.
 	h.TaskService.AutoUnresolveThreadOnReply(r.Context(), rootComment, uuidToString(issue.WorkspaceID), authorType, authorID, h.wakeupSourceTaskID(r))
 
-	originatorUserID := h.invokeOriginatorFromRequest(r, authorType, authorID)
-	// The comment is already saved; a blocked mention must not fail the whole
-	// request. Surface the per-target outcomes so the client can show partial
-	// success instead of a silent no-op (MUL-4525 §2).
-	resp.TriggerOutcomes = h.triggerTasksForComment(r.Context(), issue, comment, parentComment, authorType, authorID, originatorUserID, suppressAgentIDs, steer)
+	if len(plan) == 0 {
+		h.recordSquadHandoffs(r.Context(), issue, comment, &handoffPlan, nil)
+	} else {
+		// The durable intent was committed with the comment. A failed request or a
+		// process exit here leaves the lease to expire so the sweeper can resume it.
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
+		defer cancel()
+		var records map[string]commentEnqueueResult
+		resp.TriggerOutcomes, records = h.dispatchCommentTriggers(ctx, issue, comment, authorType, authorID, originatorUserID, triggers, targets, steer, &handoffPlan)
+		for i := range plan {
+			if result, ok := records[plan[i].AgentID]; ok {
+				plan[i].Status, plan[i].ReasonCode = result.status, result.reason
+				// A dispatch race may have held the slot under another review head.
+				// Let the sweeper recheck coverage before exposing a final failure.
+				if result.status == DispatchBlocked && result.reason == ReasonInternalError {
+					plan[i].Status = DispatchDeferred
+				}
+			}
+		}
+		if err := h.saveCommentDeliveries(ctx, comment.ID, leaseID, plan); err != nil {
+			slog.Warn("save comment delivery results", "comment_id", uuidToString(comment.ID), "error", err)
+		}
+		resp.Deliveries = deliveryResponses(plan)
+	}
 	if !steer.empty() {
 		applyCommentSupplements(&resp, h.listCommentSupplements(r.Context(), issue.WorkspaceID, []pgtype.UUID{comment.ID})[uuidToString(comment.ID)])
 	}
@@ -2046,6 +2103,11 @@ func (h *Handler) triggerTasksForComment(ctx context.Context, issue db.Issue, co
 		handoffPlan:             handoffPlan,
 	})
 	triggers = filterSuppressedCommentAgentTriggers(triggers, suppressAgentIDs)
+	outcomes, _ := h.dispatchCommentTriggers(ctx, issue, comment, actorType, actorID, originatorUserID, triggers, targets, steer, handoffPlan)
+	return outcomes
+}
+
+func (h *Handler) dispatchCommentTriggers(ctx context.Context, issue db.Issue, comment db.Comment, actorType, actorID, originatorUserID string, triggers []commentAgentTrigger, targets []commentMentionTarget, steer commentSteerRequest, handoffPlan *squadHandoffPlan) ([]CommentTriggerOutcome, map[string]commentEnqueueResult) {
 	h.noteBlockedRuntimeTargets(ctx, issue, targets)
 	triggers, steered := h.steerCommentAgentTriggers(ctx, issue, comment, actorType, actorID, originatorUserID, triggers, steer)
 	enqueued := h.enqueueCommentAgentTriggers(ctx, issue, comment.ID, triggers)
@@ -2058,7 +2120,7 @@ func (h *Handler) triggerTasksForComment(ctx context.Context, issue db.Issue, co
 	}
 	outcomes := commentTriggerOutcomes(targets, enqueued)
 	h.noteCommentInvocationDenied(ctx, issue, comment, outcomes)
-	return outcomes
+	return outcomes, enqueued
 }
 
 // noteBlockedRuntimeTargets leaves one system comment per agent refused for an
@@ -2729,7 +2791,7 @@ func (h *Handler) computeCommentAgentTriggers(ctx context.Context, issue db.Issu
 	// A persisted comment determines its thread; previews use the parent.
 	// A new top-level preview has no thread yet and cannot merge with a queue.
 	opts.ThreadCommentID = opts.ExcludeTriggerCommentID
-	if !opts.ThreadCommentID.Valid && parentComment != nil {
+	if (opts.UnpersistedComment || !opts.ThreadCommentID.Valid) && parentComment != nil {
 		opts.ThreadCommentID = parentComment.ID
 	}
 
@@ -4084,6 +4146,10 @@ func (h *Handler) deleteComment(ctx context.Context, commentID, workspaceID pgty
 		CommentID:   target.ID,
 		WorkspaceID: target.WorkspaceID,
 	}); err != nil {
+		return out, err
+	}
+
+	if err := qtx.DeleteCommentDelivery(ctx, db.DeleteCommentDeliveryParams{CommentID: target.ID, WorkspaceID: workspaceID}); err != nil {
 		return out, err
 	}
 

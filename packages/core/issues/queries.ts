@@ -668,6 +668,9 @@ export function issueTimelineOptions(issueId: string) {
   return queryOptions({
     queryKey: issueKeys.timeline(issueId),
     queryFn: () => api.listTimeline(issueId),
+    refetchInterval: (query) => query.state.data?.some((entry) =>
+      entry.deliveries?.some((delivery) => delivery.status !== "received" && delivery.status !== "blocked"),
+    ) ? 30_000 : false,
   });
 }
 

@@ -110,16 +110,21 @@ type CommentSupplementResponse struct {
 // listCommentSupplements groups every receipt by comment id, oldest first.
 // Receipts are optional metadata: a failed read leaves comments without them.
 func (h *Handler) listCommentSupplements(ctx context.Context, workspaceID pgtype.UUID, commentIDs []pgtype.UUID) map[string][]CommentSupplementResponse {
-	out := make(map[string][]CommentSupplementResponse)
+	receipts, _ := h.lookupCommentSupplements(ctx, workspaceID, commentIDs)
+	return receipts
+}
+
+func (h *Handler) lookupCommentSupplements(ctx context.Context, workspaceID pgtype.UUID, commentIDs []pgtype.UUID) (map[string][]CommentSupplementResponse, error) {
 	if len(commentIDs) == 0 {
-		return out
+		return nil, nil
 	}
 	rows, err := h.Queries.ListTaskSupplementsByCommentIDs(ctx, db.ListTaskSupplementsByCommentIDsParams{
 		WorkspaceID: workspaceID, CommentIds: commentIDs,
 	})
 	if err != nil {
-		return out
+		return nil, err
 	}
+	out := make(map[string][]CommentSupplementResponse)
 	for _, row := range rows {
 		id := uuidToString(row.CommentID)
 		out[id] = append(out[id], CommentSupplementResponse{
@@ -130,7 +135,7 @@ func (h *Handler) listCommentSupplements(ctx context.Context, workspaceID pgtype
 			DeliveredAt:   timestampToPtr(row.DeliveredAt),
 		})
 	}
-	return out
+	return out, nil
 }
 
 // applyCommentSupplements sets the receipt list and mirrors its first entry

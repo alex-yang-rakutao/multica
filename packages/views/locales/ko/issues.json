@@ -1,4 +1,19 @@
 {
+  "run_feedback": {
+    "queued": "실행이 대기열에 추가됨",
+    "covered": "기존 실행에서 이 변경을 처리합니다",
+    "deferred": "실행이 보류됨",
+    "blocked": "실행이 시작되지 않음"
+  },
+  "comment_delivery": {
+    "waiting": "전달 대기 중",
+    "queued": "전달 대기열에 추가됨",
+    "received": "실행에 전달됨",
+    "run_ended": "댓글을 받기 전에 실행이 종료되었습니다",
+    "view_run": "실행 보기",
+    "retry": "전달 재시도",
+    "retry_failed": "전달을 재시도할 수 없습니다"
+  },
   "web": {
     "open_in_desktop": "데스크톱에서 열기"
   },

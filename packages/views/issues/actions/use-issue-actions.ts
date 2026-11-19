@@ -4,6 +4,7 @@ import { subIssueCreateDefaults } from "@multica/core/issues";
 import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useIssueRunFeedback } from "../hooks/use-issue-run-feedback";
 import type { Issue, UpdateIssueRequest } from "@multica/core/types";
 import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
@@ -69,7 +70,7 @@ export function useIssueActions(issue: Issue | null): UseIssueActionsResult {
       (p) => p.item_type === "issue" && p.item_id === issue.id,
     );
 
-  const updateIssue = useUpdateIssue();
+  const updateIssue = useUpdateIssue(useIssueRunFeedback());
   const surfaceActions = useIssueSurfaceActionsOptional();
   const createPin = useCreatePin();
   const deletePin = useDeletePin();

@@ -5361,6 +5361,9 @@ func (h *Handler) reconcileCommentsOnCompletion(ctx context.Context, task *db.Ag
 		if len(scoped) == 0 {
 			continue
 		}
+		if h.resumeTrackedCommentDelivery(ctx, c, agentID) {
+			continue
+		}
 		// The first qualifying comment enqueues the follow-up task; later ones
 		// find it AlreadyPending and merge in, so all undelivered comments end
 		// up covered by a single bounded run.

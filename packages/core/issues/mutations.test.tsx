@@ -204,6 +204,33 @@ describe("useUpdateIssue — optimistic move keeps every bucketed board in sync"
     vi.restoreAllMocks();
   });
 
+  it("reports the dispatch outcome after the editing surface closes", async () => {
+    qc.setQueryData(issueKeys.detail(WS_ID, "issue-1"), makeIssue(1));
+    let resolve!: (issue: Issue) => void;
+    updateIssue.mockReturnValue(new Promise<Issue>((done) => { resolve = done; }));
+    const onRunOutcome = vi.fn();
+    const { result, unmount } = renderHook(() => useUpdateIssue(onRunOutcome), {
+      wrapper: createWrapper(qc),
+    });
+
+    let saved!: Promise<Issue>;
+    act(() => {
+      saved = result.current.mutateAsync({
+        id: "issue-1", assignee_type: "agent", assignee_id: "agent-1",
+      });
+    });
+    await waitFor(() => expect(updateIssue).toHaveBeenCalled());
+    unmount();
+
+    const outcome = { status: "blocked", reason_code: "runtime_offline" } as const;
+    const savedIssue = { ...makeIssue(1), run_outcome: outcome };
+    resolve(savedIssue);
+    await saved;
+    expect(onRunOutcome).toHaveBeenCalledOnce();
+    expect(onRunOutcome).toHaveBeenCalledWith(outcome);
+    expect(qc.getQueryData<Issue>(issueKeys.detail(WS_ID, "issue-1"))).not.toHaveProperty("run_outcome");
+  });
+
   it("optimistically moves the card in both the workspace and myList caches", async () => {
     let resolve!: (issue: Issue) => void;
     updateIssue.mockReturnValue(

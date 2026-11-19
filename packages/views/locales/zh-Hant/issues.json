@@ -1,4 +1,19 @@
 {
+  "run_feedback": {
+    "queued": "執行已排隊",
+    "covered": "已有執行處理這次變更",
+    "deferred": "執行已延後",
+    "blocked": "執行未啟動"
+  },
+  "comment_delivery": {
+    "waiting": "等待傳送",
+    "queued": "已排隊等待傳送",
+    "received": "執行已收到",
+    "run_ended": "執行結束前未收到這則留言",
+    "view_run": "查看執行",
+    "retry": "重試傳送",
+    "retry_failed": "無法重試傳送"
+  },
   "web": {
     "open_in_desktop": "在桌面版開啟"
   },

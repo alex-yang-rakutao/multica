@@ -1,4 +1,19 @@
 {
+  "run_feedback": {
+    "queued": "Ejecución en cola",
+    "covered": "Una ejecución existente se encarga de este cambio",
+    "deferred": "Ejecución aplazada",
+    "blocked": "La ejecución no se inició"
+  },
+  "comment_delivery": {
+    "waiting": "Esperando el envío a la ejecución",
+    "queued": "En cola para el envío",
+    "received": "Recibido por la ejecución",
+    "run_ended": "La ejecución terminó antes de recibir este comentario",
+    "view_run": "Ver ejecución",
+    "retry": "Reintentar envío",
+    "retry_failed": "No se pudo reintentar el envío"
+  },
   "web": {
     "open_in_desktop": "Abrir en la aplicación de escritorio"
   },

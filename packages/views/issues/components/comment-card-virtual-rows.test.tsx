@@ -3,6 +3,7 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { forwardRef, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { TimelineEntry } from "@multica/core/types";
+import { useActorName } from "@multica/core/workspace/hooks";
 import { renderWithI18n } from "../../test/i18n";
 
 // Which threads mount their replies on demand (MUL-9409). The timeline's
@@ -32,7 +33,7 @@ vi.mock("@multica/core/permissions", async (importOriginal) => ({
 }));
 
 vi.mock("@multica/core/workspace/hooks", () => ({
-  useActorName: () => ({ getActorName: () => "Ada" }),
+  useActorName: vi.fn(() => ({ getActorName: () => "Ada" })),
 }));
 
 vi.mock("../../common/actor-avatar", () => ({
@@ -59,6 +60,7 @@ vi.mock("../../editor", async () => ({
 }));
 
 import { CommentCard } from "./comment-card";
+import { CommentDeliveries } from "./comment-deliveries";
 import { resetRememberedThreadRowHeights } from "./virtual-thread-row";
 
 // Nothing intersects until a test says so: virtualized rows start as
@@ -125,6 +127,17 @@ function renderThread(replies: TimelineEntry[], replyScrollParent: HTMLElement |
 }
 
 const longReplies = () => [1, 2, 3].map((n) => comment(`reply-${n}`, "root", `report ${n} ${"x".repeat(5_000)}`));
+
+it("does not subscribe to the actor directory for an empty delivery list", () => {
+  vi.mocked(useActorName).mockClear();
+  const entry = comment("root", null, "root body");
+  const { container } = renderWithI18n(
+    <CommentDeliveries issueId="issue-1" entry={entry} getActorName={() => "Ada"} />,
+  );
+
+  expect(container).toBeEmptyDOMElement();
+  expect(useActorName).not.toHaveBeenCalled();
+});
 
 describe("CommentCard — reply virtualization", () => {
   it("mounts a short thread of long replies on demand", () => {

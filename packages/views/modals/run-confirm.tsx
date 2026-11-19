@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { useIssueRunFeedback } from "../issues/hooks/use-issue-run-feedback";
 import {
   Dialog,
   DialogContent,
@@ -114,7 +115,7 @@ export function RunConfirmModal({
   const [pendingAction, setPendingAction] = useState<"go" | "suppress" | null>(null);
   const submitting = pendingAction !== null;
 
-  const updateIssue = useUpdateIssue();
+  const updateIssue = useUpdateIssue(useIssueRunFeedback());
   const batchUpdate = useBatchUpdateIssues();
   const { report: reportBatch } = useBatchResultToast();
 
@@ -149,10 +150,6 @@ export function RunConfirmModal({
     setPendingAction(suppressRun ? "suppress" : "go");
     const payload = applyTo(suppressRun ? { suppress_run: true } : {});
     try {
-      // Completion is silent, exactly as before: the assignee and any run show
-      // up through the issue's normal assignee / run-status updates, so there is
-      // no result toast to add here. Whether a run started is the server's
-      // existing decision at write time, not something this dialog reports.
       if (issueIds.length === 1) {
         await updateIssue.mutateAsync({
           id: issueIds[0]!,

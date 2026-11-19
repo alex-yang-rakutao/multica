@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/multica-ai/multica/server/internal/testutil"
 )
 
 func findCommentOutcome(t *testing.T, outcomes []CommentTriggerOutcome, targetID string) CommentTriggerOutcome {
@@ -81,6 +83,20 @@ func TestCreateComment_MixedMentionSurfacesPartialTriggerOutcomes(t *testing.T) 
 	blocked := findCommentOutcome(t, resp.TriggerOutcomes, squadID)
 	if blocked.TargetType != "squad" || blocked.Status != DispatchBlocked || blocked.ReasonCode != ReasonInvocationNotAllowed {
 		t.Errorf("blocked outcome = %+v, want squad/blocked/invocation_not_allowed", blocked)
+	}
+
+	var listed []CommentResponse
+	testutil.Call(t, testHandler.ListComments, withURLParam(
+		newRequest(http.MethodGet, "/api/issues/"+issueID+"/comments", nil), "id", issueID,
+	)).Want(http.StatusOK).JSON(&listed)
+	var reloaded []CommentDelivery
+	for _, comment := range listed {
+		if comment.ID == resp.ID {
+			reloaded = comment.Deliveries
+		}
+	}
+	if len(reloaded) != 2 {
+		t.Fatalf("reloaded deliveries = %+v, want one queued and one blocked", reloaded)
 	}
 
 	// The allowed agent ran; the private leader was never enqueued.

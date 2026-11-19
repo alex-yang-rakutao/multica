@@ -47,6 +47,7 @@ import { AppCallChips } from "./app-call-chips";
 import { useCommentTriggerPreview } from "../hooks/use-comment-trigger-preview";
 import { useRecipientActions } from "../hooks/use-recipient-actions";
 import { SteerBadge, SteerReceipts } from "./steer-receipts";
+import { CommentDeliveries } from "./comment-deliveries";
 import type { AgentTask, TimelineEntry, Attachment } from "@multica/core/types";
 import { contentReferencesAttachment } from "@multica/core/types";
 import { isDeletedComment } from "@multica/core/issues/comment-deletion";
@@ -1030,6 +1031,7 @@ function CommentRow({
           <AttachmentList attachments={entry.attachments} content={entry.content} className="mt-1.5 pl-12 pr-4 max-md:pl-3 max-md:pr-3" />
           <div className="pl-12 pr-4 max-md:pl-3 max-md:pr-3">
             <SteerReceipts issueId={issueId} entry={entry} />
+            <CommentDeliveries issueId={issueId} entry={entry} getActorName={getActorName} />
             {entry.actor_type === "agent" && entry.source_task_id && (
               <AppCallChips issueId={issueId} taskId={entry.source_task_id} />
             )}
@@ -1677,6 +1679,7 @@ function CommentCardImpl({
                 <AttachmentList attachments={entry.attachments} content={entry.content} className="mt-1.5 pl-8 max-md:pl-0" />
                 <div className="pl-8 max-md:pl-0">
                   <SteerReceipts issueId={issueId} entry={entry} />
+                  <CommentDeliveries issueId={issueId} entry={entry} getActorName={getActorName} />
                   {entry.actor_type === "agent" && entry.source_task_id && (
                     <AppCallChips issueId={issueId} taskId={entry.source_task_id} />
                   )}

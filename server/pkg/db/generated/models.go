@@ -779,6 +779,17 @@ type Comment struct {
 	SuppressedAgentIds []pgtype.UUID      `json:"suppressed_agent_ids"`
 }
 
+type CommentDelivery struct {
+	CommentID     pgtype.UUID        `json:"comment_id"`
+	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
+	IssueID       pgtype.UUID        `json:"issue_id"`
+	Targets       []byte             `json:"targets"`
+	Steer         []byte             `json:"steer"`
+	NextAttemptAt pgtype.Timestamptz `json:"next_attempt_at"`
+	LeaseID       pgtype.UUID        `json:"lease_id"`
+	LeaseUntil    pgtype.Timestamptz `json:"lease_until"`
+}
+
 type CommentIdempotencyReceipt struct {
 	WorkspaceID        pgtype.UUID        `json:"workspace_id"`
 	ActorType          string             `json:"actor_type"`
