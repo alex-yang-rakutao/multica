@@ -59,7 +59,7 @@ multica daemon start
 
 启动时，守护进程检测 `PATH` 中受支持的 AI 编程工具，为你有权连接的工作区注册运行时。工具刚安装或刚登录时，重启守护进程就会重新检测。
 
-守护进程至少需要检测到一款内置支持的 AI 编程工具才能启动。安装方法和可执行文件名见[安装 AI 编程工具](/install-agent-runtime)。
+守护进程需要检测到一款受支持的 AI 编程工具，或配置了 [Hermes Gateway](#hermes-gateway) 连接，才能启动。本地工具的安装方法见[安装 AI 编程工具](/install-agent-runtime)。
 
 ### 在 Linux 容器中运行 [#linux-container]
 
@@ -101,6 +101,21 @@ multica daemon autostart disable
 独立运行的 CLI 守护进程有新版本时，运行时所有者和工作区管理员可以在**运行时**页面点击**更新**。如果机器正在执行任务且守护进程支持排队更新，这次更新会被暂存，不中断或暂停当前工作；**运行时**页面会在该机器的所有运行时上显示**空闲后更新**、当前运行数和**取消**按钮。
 
 最后一个运行中的任务结束后，安装会自动开始。每台机器同一时间只允许一个未完成的更新；如果机器持续 24 小时未能空闲，排队会自动失效；在开始安装前随时可以取消。不支持排队的旧版守护进程在忙碌时会直接拒绝远程更新，需等空闲后重试。由 Multica 桌面端拉起的守护进程归桌面端管理，随桌面端一起升级。
+
+## Hermes Gateway [#hermes-gateway]
+
+一个自托管守护进程可以注册同一台机器上的多个 Hermes Profile。为每个 Profile 设置 `API_SERVER_ENABLED=true`，分别配置 `API_SERVER_PORT` 和 `API_SERVER_KEY`，并绑定回环地址 `127.0.0.1`。[Hermes API Server 配置](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server#configuration)
+
+在守护进程配置目录中创建 `hermes-gateways.json`。默认目录是 `~/.multica`，命名 profile 使用 `~/.multica/profiles/<name>`。请替换两个示例密钥，并将文件访问权限限制给守护进程用户。
+
+```json
+{
+  "alfred": { "url": "http://127.0.0.1:8642", "api_key": "replace-with-alfred-key" },
+  "bruce": { "url": "http://127.0.0.1:8643", "api_key": "replace-with-bruce-key" }
+}
+```
+
+重启守护进程后，将每个智能体绑定到对应的 Hermes Gateway 运行时。Multica 服务端和守护进程需要使用匹配的构建版本。运行使用 Hermes Profile 的模型、工具和执行环境。这类运行时暂不支持 Multica 的本地目录和 worktree 执行。
 
 ## 派发与在线状态
 

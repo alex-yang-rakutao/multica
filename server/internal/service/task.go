@@ -6588,7 +6588,7 @@ func (s *TaskService) terminateTasksInTx(ctx context.Context, fail func(*db.Quer
 		if err != nil {
 			return err
 		}
-		// A terminal infrastructure error does not stop an independent Muse
+		// A terminal infrastructure error does not stop an independent remote
 		// worker. Persist that uncertainty in this transaction, before retry
 		// decisions or another claim can observe the failed rows.
 		var startedIDs []pgtype.UUID
@@ -6600,9 +6600,9 @@ func (s *TaskService) terminateTasksInTx(ctx context.Context, fail func(*db.Quer
 			}
 		}
 		if len(startedIDs) > 0 {
-			unconfirmed, err := qtx.MarkMuseAppRecoveryCleanupUnconfirmed(ctx, startedIDs)
+			unconfirmed, err := qtx.MarkRemoteRecoveryCleanupUnconfirmed(ctx, startedIDs)
 			if err != nil {
-				return fmt.Errorf("record Muse recovery cleanup: %w", err)
+				return fmt.Errorf("record remote recovery cleanup: %w", err)
 			}
 			for _, task := range unconfirmed {
 				failed[indices[task.ID]] = task

@@ -59,7 +59,7 @@ To place run workspaces on another disk, persist a root for the current profile 
 
 On startup, the daemon detects supported AI coding tools on `PATH` and registers runtimes for the workspaces you are allowed to connect. If a tool was just installed or signed in, restart the daemon to detect it.
 
-The daemon needs at least one built-in supported AI coding tool detected before it will start. Install methods and executable names are in [Install AI coding tools](/install-agent-runtime).
+The daemon needs a supported AI coding tool or a configured [Hermes Gateway](#hermes-gateway) connection to start. See [Install AI coding tools](/install-agent-runtime) for local tools.
 
 ### Run in a Linux container [#linux-container]
 
@@ -101,6 +101,21 @@ The registered command is `multica daemon start --foreground` for that profile, 
 When a newer release is available for a standalone CLI daemon, runtime owners and workspace admins can click **Update** on the **Runtimes** page. If the machine is running tasks and the daemon supports queued updates, the update is held without interrupting active work, and the **Runtimes** page shows **Updates when idle** with the running task count and a **Cancel** button across every runtime on that machine.
 
 Installation starts automatically once the last running task finishes. Only one unfinished update is allowed per machine; a queued update expires after 24 hours if the machine never becomes idle, and can be cancelled until installation begins. Daemons on older CLI versions without queue support refuse remote updates while busy; retry once the machine is idle. Daemons launched by Multica Desktop are managed by Desktop and upgraded with the Desktop app instead.
+
+## Hermes Gateway [#hermes-gateway]
+
+One self-hosted daemon can register multiple Hermes profiles on the same machine. Enable the Hermes Runs API on each profile with `API_SERVER_ENABLED=true`, a distinct `API_SERVER_PORT`, and its own `API_SERVER_KEY`. Use the loopback address `127.0.0.1`. [Hermes API Server configuration](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server#configuration)
+
+Create `hermes-gateways.json` in the daemon profile directory (`~/.multica` by default or `~/.multica/profiles/<name>`). Restrict the file to the daemon user and replace both example keys.
+
+```json
+{
+  "alfred": { "url": "http://127.0.0.1:8642", "api_key": "replace-with-alfred-key" },
+  "bruce": { "url": "http://127.0.0.1:8643", "api_key": "replace-with-bruce-key" }
+}
+```
+
+Restart the daemon and assign each agent to its corresponding Hermes Gateway runtime. Use a matching Multica server and daemon build. Runs use the model, tools and execution environment of the Hermes profile. Multica local-directory and worktree execution are unavailable on these runtimes.
 
 ## Dispatch and online status
 

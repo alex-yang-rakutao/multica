@@ -59,7 +59,7 @@ multica daemon start
 
 啟動時，守護程序檢測 `PATH` 中受支援的 AI 程式設計工具，為你有權連線的工作區註冊執行時。工具剛安裝或剛登入時，重啟守護程序就會重新檢測。
 
-守護程序至少需要檢測到一款內建支援的 AI 程式設計工具才能啟動。安裝方法和可執行檔名見[安裝 AI 程式設計工具](/install-agent-runtime)。
+守護程序需要偵測到一款支援的 AI 程式設計工具，或已設定 [Hermes Gateway](#hermes-gateway) 連線，才能啟動。本機工具的安裝方式請見[安裝 AI 程式設計工具](/install-agent-runtime)。
 
 ### 在 Linux 容器中執行 [#linux-container]
 
@@ -101,6 +101,21 @@ multica daemon autostart disable
 獨立執行的 CLI 守護程序有新版本時，執行時所有者和工作區管理員可以在**執行時**頁面點選**更新**。如果機器正在執行任務且守護程序支援排隊更新，這次更新會被暫存，不中斷或暫停目前工作；**執行時**頁面會在該機器的所有執行時上顯示**閒置後更新**、目前執行數與**取消**按鈕。
 
 最後一個執行中的任務結束後，安裝會自動開始。每臺機器同一時間只允許一個未完成的更新；如果機器持續 24 小時未能閒置，排隊會自動失效；在開始安裝前隨時可以取消。不支援排隊的舊版守護程序在忙碌時會直接拒絕遠端更新，需等閒置後重試。由 Multica 桌面端拉起的守護程序歸桌面端管理，隨桌面端一起升級。
+
+## Hermes Gateway [#hermes-gateway]
+
+一個自行架設的守護程序可註冊同一台機器上的多個 Hermes Profile。為每個 Profile 設定 `API_SERVER_ENABLED=true`、個別的 `API_SERVER_PORT` 和 `API_SERVER_KEY`，並繫結回環位址 `127.0.0.1`。
+
+在守護程序設定目錄 `~/.multica` 或 `~/.multica/profiles/<name>` 建立 `hermes-gateways.json`。請更換範例金鑰，並將檔案權限限制給守護程序使用者。
+
+```json
+{
+  "alfred": { "url": "http://127.0.0.1:8642", "api_key": "replace-with-alfred-key" },
+  "bruce": { "url": "http://127.0.0.1:8643", "api_key": "replace-with-bruce-key" }
+}
+```
+
+重啟守護程序後，將每個 AI 代理綁定至對應的 Hermes Gateway 執行時。伺服器與守護程序需使用相同版本。執行會使用 Hermes Profile 的模型與工具，暫時不支援 Multica 的本機目錄或 worktree。
 
 ## 派發與線上狀態
 

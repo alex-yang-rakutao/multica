@@ -77,7 +77,8 @@ const (
 	DaemonCapabilityPiProcessCleanupV1 = "pi-process-cleanup-v1"
 	// Muse workers run outside the daemon process tree and must acknowledge
 	// execution shutdown before cancellation can release subsequent work.
-	DaemonCapabilityMuseAppProcessCleanupV1 = "museapp-process-cleanup-v1"
+	DaemonCapabilityMuseAppProcessCleanupV1       = "museapp-process-cleanup-v1"
+	DaemonCapabilityHermesGatewayProcessCleanupV1 = "hermes-gateway-process-cleanup-v1"
 	// DaemonCapabilityWorkflowStatusRulesV1 advertises that the daemon's
 	// runtime brief drops its built-in in_progress / in_review rules for an
 	// issue whose claim carries a project workflow (MUL-8145). Only then may

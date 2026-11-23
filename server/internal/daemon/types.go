@@ -4,13 +4,15 @@ import (
 	"encoding/json"
 
 	"github.com/multica-ai/multica/server/internal/runtimeapps"
+	"github.com/multica-ai/multica/server/pkg/agent"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 	"github.com/multica-ai/multica/server/pkg/remotemcp"
 )
 
-// AgentEntry describes a single available agent CLI.
+// AgentEntry describes a configured agent runtime.
 type AgentEntry struct {
-	Path string // stable startup-resolved CLI entry point; launch resolution may follow platform links to a concrete path
+	hermesGateway agent.HermesGatewayConnection
+	Path          string // stable startup-resolved CLI entry point; launch resolution may follow platform links to a concrete path
 	// Command is the bare command name or MULTICA_*_PATH value that Path was
 	// resolved from at startup. It is kept so the daemon can re-resolve Path
 	// if the pinned executable later vanishes — e.g. a version manager

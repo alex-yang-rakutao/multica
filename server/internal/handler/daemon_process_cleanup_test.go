@@ -116,7 +116,7 @@ func TestProcessCleanupCapabilityNegotiation(t *testing.T) {
 	if testHandler == nil {
 		t.Fatal("PostgreSQL is required")
 	}
-	for _, provider := range []string{"pi", "omp", "codex", "museapp"} {
+	for _, provider := range []string{"pi", "omp", "codex", "museapp", "hermes_gateway-bruce"} {
 		for _, capable := range []bool{false, true} {
 			for _, claimFenced := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s/capable=%v/claim=%v", provider, capable, claimFenced), func(t *testing.T) {
@@ -126,8 +126,11 @@ func TestProcessCleanupCapabilityNegotiation(t *testing.T) {
 					id := dbfx.Task(t, agentID, testutil.Cols{"runtime_id": runtime, "issue_id": issue, "status": "dispatched", "dispatched_at": time.Now().UTC()})
 					body := map[string]any{}
 					capability := "pi-process-cleanup-v1"
-					if provider == "museapp" {
+					switch provider {
+					case "museapp":
 						capability = "museapp-process-cleanup-v1"
+					case "hermes_gateway-bruce":
+						capability = "hermes-gateway-process-cleanup-v1"
 					}
 					if capable {
 						body["capabilities"] = []string{capability}
@@ -139,7 +142,7 @@ func TestProcessCleanupCapabilityNegotiation(t *testing.T) {
 					}
 					req := withURLParam(newOwnerDaemonRequest("POST", "/api/daemon/tasks/"+id+"/start", body), "taskId", id)
 					started := testutil.Decode[map[string]any](t, testHandler.StartTask, req, http.StatusOK)
-					wantPending := capable && (provider == "pi" || provider == "omp" || provider == "museapp")
+					wantPending := capable && provider != "codex"
 					if got := started["process_cleanup_capability"] == capability; got != wantPending {
 						t.Fatalf("negotiated cleanup=%v, want %v", got, wantPending)
 					}

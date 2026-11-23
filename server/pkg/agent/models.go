@@ -490,6 +490,9 @@ func QualifyModelID(catalog Catalog, model string) (string, bool) {
 // (the runtime's own picker format, model-selection.ts), split by the backend
 // in splitZcodeModelSelection.
 func ModelSelectionSupported(providerType string) bool {
+	if IsHermesGatewayProvider(providerType) {
+		return false
+	}
 	switch providerType {
 	case "qwenpaw", "mcode", "zeroclaw", "museapp":
 		// QwenPaw's `session/set_model` persists to agent.json at the agent

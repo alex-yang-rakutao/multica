@@ -2603,6 +2603,14 @@ type builtinProbeResult struct {
 // not installed" apart from "CLI installed but dropped at registration", which
 // was previously only visible in the daemon log (MUL-5439).
 func (d *Daemon) probeBuiltinRuntime(ctx context.Context, name string, entry AgentEntry) builtinProbeResult {
+	if agent.IsHermesGatewayProvider(name) {
+		if err := entry.hermesGateway.Probe(ctx); err != nil {
+			d.logger.Warn("Hermes Gateway probe failed", "provider", name, "error", err)
+			return builtinProbeResult{reason: err.Error(), verdict: builtinProbeUnavailable}
+		}
+		d.setAgentVersion(name, "Runs API")
+		return builtinProbeResult{version: "Runs API", verdict: builtinProbeOK}
+	}
 	// museapp has no local binary: version detection runs against the remote
 	// receptionist instead. This must come before any path resolution — an
 	// empty entry.Path is expected here, not a missing CLI.
@@ -2939,6 +2947,9 @@ func (d *Daemon) detectBuiltinRuntimes(ctx context.Context) ([]map[string]string
 	runtimes := make([]map[string]string, 0, len(results))
 	for _, r := range results {
 		displayName := providerDisplayName(r.name)
+		if agent.IsHermesGatewayProvider(r.name) {
+			displayName = "Hermes Gateway · " + strings.TrimPrefix(r.name, agent.HermesGatewayProvider(""))
+		}
 		if d.cfg.DeviceName != "" {
 			displayName = fmt.Sprintf("%s (%s)", displayName, d.cfg.DeviceName)
 		}
@@ -4908,6 +4919,10 @@ func (d *Daemon) handlePendingWorkHint(runtimeID, kind string) {
 // usable; only the second one tells the user why it is empty.
 func (d *Daemon) handleModelList(ctx context.Context, rt Runtime, requestID string) {
 	d.logger.Info("model list requested", "runtime_id", rt.ID, "request_id", requestID, "provider", rt.Provider)
+	if agent.IsHermesGatewayProvider(rt.Provider) {
+		d.reportModelListResult(ctx, rt, requestID, map[string]any{"status": "completed", "models": []agent.Model{}})
+		return
+	}
 
 	// Discovery must enumerate the binary this runtime will actually execute,
 	// otherwise the picker advertises a catalog the launched CLI never agreed
@@ -6389,7 +6404,7 @@ func taskCancelAcknowledgement(result TaskResult, runErr error, provider string)
 		ack.FailureReason = "local_directory_error"
 	}
 	confirmed := result.FailureReason != taskfailure.ReasonProcessCleanupUnconfirmed.String()
-	if provider == "pi" || provider == "omp" || provider == "museapp" {
+	if provider == "pi" || provider == "omp" || provider == "museapp" || agent.IsHermesGatewayProvider(provider) {
 		ack.ProcessCleanupConfirmed = &confirmed
 	}
 	if !confirmed {
@@ -7030,6 +7045,9 @@ func providerDisplayName(name string) string {
 // That is the loader contract, not a canary result. No fresh MUL-5392 canary
 // was run for 1.5.2.
 func providerNeedsInlineSystemPrompt(provider string) bool {
+	if agent.IsHermesGatewayProvider(provider) {
+		return true
+	}
 	switch provider {
 	case "openclaw", "kimi", "traecli", "qwenpaw":
 		return true
@@ -7177,7 +7195,9 @@ func migrateClaudeWorktreeTranscript(env *execenv.Environment, sessionID, envWor
 
 func gateResumeToReachableSession(task *Task, taskCtx *execenv.TaskContextForEnv, provider, envWorkDir string, sessionHomeReachable, refusesMissingSessionCwd, codexWorktreeResumeEligible, claudeResumeReady bool, taskLog *slog.Logger) bool {
 	var reachable bool
-	if providerUsesPiSessionFile(provider) {
+	if agent.IsHermesGatewayProvider(provider) {
+		reachable = true
+	} else if providerUsesPiSessionFile(provider) {
 		reachable = piSessionResumable(task.PriorSessionID, refusesMissingSessionCwd)
 	} else if provider == "hermes" || provider == "antigravity" {
 		reachable = sessionHomeReachable
@@ -8377,7 +8397,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 			"task_id", task.ID, "runtime_id", task.RuntimeID,
 			"provider", provider, "command_path", customSpec.path,
 			"fixed_args", len(profileFixedArgs))
-	} else if ok {
+	} else if ok && !agent.IsHermesGatewayProvider(provider) {
 		// Built-in provider: self-heal a pinned executable path that an in-place
 		// upgrade deleted (MUL-4486). Only reached when no custom profile owns
 		// the launch, so a custom runtime's path is never second-guessed and a
@@ -8551,6 +8571,9 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	// LocalWorkDir into execenv. handleTask already validated + locked the
 	// path for worker tasks; leader tasks intentionally skip the assignment.
 	localAssignment, _ := localDirectoryAssignmentForTask(task, d.cfg.DaemonID)
+	if localAssignment != nil && agent.IsHermesGatewayProvider(provider) {
+		return TaskResult{}, fmt.Errorf("Hermes Gateway does not support Multica local-directory execution")
+	}
 	// Reuse intentionally skipped for local_directory tasks: the prior
 	// WorkDir is the user's own path (always present) but the reuse path
 	// loses the envRoot association the GC loop needs, and re-running
@@ -9092,6 +9115,9 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	if provider == "museapp" {
 		taskCapabilities = append(taskCapabilities, protocol.DaemonCapabilityMuseAppProcessCleanupV1)
 	}
+	if agent.IsHermesGatewayProvider(provider) {
+		taskCapabilities = append(taskCapabilities, protocol.DaemonCapabilityHermesGatewayProcessCleanupV1)
+	}
 	var supplementHookCommand []string
 	supplementSupported := agent.SupportsTaskSupplement(provider, resolvedVersion) && (task.IssueID != "" || task.ChatSessionID != "")
 	if supplementSupported {
@@ -9345,6 +9371,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	// daemon never calls agent.New or agent.NewRuntime directly, so the two
 	// factories stay meaning exactly one thing each.
 	backendConfig := agent.Config{
+		HermesGateway:  entry.hermesGateway,
 		ExecutablePath: entry.Path,
 		LaunchPrefix:   profileFixedArgs,
 		CLIVersion:     resolvedVersion,

@@ -50,7 +50,7 @@ func TestMuseAppRecoveryBlocksAutomaticSuccessor(t *testing.T) {
 	testutil.Call(t, testHandler.StartTask, start).Want(http.StatusOK)
 }
 
-func TestMuseAppInfrastructureRecoveryPolicies(t *testing.T) {
+func TestRemoteRuntimeInfrastructureRecoveryPolicies(t *testing.T) {
 	if testHandler == nil {
 		t.Fatal("PostgreSQL is required")
 	}
@@ -65,6 +65,8 @@ func TestMuseAppInfrastructureRecoveryPolicies(t *testing.T) {
 			{"runtime changed", "museapp", "running", "museapp-process-cleanup-v1", true, true},
 			{"not started", "museapp", "dispatched", "", false, false},
 			{"waiting for workdir", "museapp", "waiting_local_directory", "", false, false},
+			{"Hermes Gateway", "hermes_gateway-bruce", "running", "hermes-gateway-process-cleanup-v1", false, true},
+			{"Hermes Gateway runtime changed", "hermes_gateway-bruce", "running", "hermes-gateway-process-cleanup-v1", true, true},
 			{"Codex", "codex", "running", "", false, false},
 			{"Pi", "pi", "running", "pi-process-cleanup-v1", false, false},
 		} {

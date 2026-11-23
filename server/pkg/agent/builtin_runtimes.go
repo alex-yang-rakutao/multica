@@ -151,6 +151,12 @@ func (b *piBackend) applyBuiltinRuntimeOverrides(desc BuiltinRuntime) {
 // thing: New() is family-only, NewRuntime() is runtime-identity-only, and
 // the daemon never has to know which is which.
 func ResolveBackend(provider string, cfg Config) (Backend, error) {
+	if IsHermesGatewayProvider(provider) {
+		if err := cfg.HermesGateway.Validate(); err != nil {
+			return nil, err
+		}
+		return &hermesRemoteBackend{connection: cfg.HermesGateway, taskID: cfg.TaskID}, nil
+	}
 	if IsBuiltinRuntime(provider) {
 		return NewRuntime(provider, cfg)
 	}
